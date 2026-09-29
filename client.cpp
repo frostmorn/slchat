@@ -709,7 +709,7 @@ static void on_im(Client* cl, Rd* r)
         known_add(cl, from, name);
         say_line("[friend request] %s: %s (accepting is not supported)", clean(name).c_str(), clean(msg).c_str());
         break;
-    case 17:                                            /* IM_SESSION_SEND: group / conference */
+    case IM_SESSION_SEND:
         say_line("[group/conf] %s: %s", clean(name).c_str(), clean(msg).c_str());
         break;
     default:

@@ -63,39 +63,7 @@ void zero_encode(const uint8_t* src, size_t n, Buf* out);   /* used by tests */
 /* message numbers.  key = (frequency << 16) | number                  */
 /* values checked against secondlife/master-message-template           */
 /* ------------------------------------------------------------------ */
-
-#define MK_HIGH(n)  (0x00000u | (n))
-#define MK_MED(n)   (0x10000u | (n))
-#define MK_LOW(n)   (0x20000u | (n))
-#define MK_FIXED(n) (0x30000u | (n))
-
-enum {
-    MSG_StartPingCheck          = MK_HIGH(1),
-    MSG_CompletePingCheck       = MK_HIGH(2),
-    MSG_AgentUpdate             = MK_HIGH(4),
-    MSG_PacketAck               = MK_FIXED(0xFB),
-    MSG_UseCircuitCode          = MK_LOW(3),
-    MSG_TeleportLocationRequest = MK_LOW(63),
-    MSG_TeleportLocal           = MK_LOW(64),
-    MSG_TeleportLandmarkRequest = MK_LOW(65),
-    MSG_TeleportProgress        = MK_LOW(66),
-    MSG_TeleportLureRequest     = MK_LOW(71),
-    MSG_TeleportStart           = MK_LOW(73),
-    MSG_TeleportFailed          = MK_LOW(74),
-    MSG_ChatFromViewer          = MK_LOW(80),
-    MSG_AgentThrottle           = MK_LOW(81),
-    MSG_ChatFromSimulator       = MK_LOW(139),
-    MSG_RegionHandshake         = MK_LOW(148),
-    MSG_RegionHandshakeReply    = MK_LOW(149),
-    MSG_KickUser                = MK_LOW(163),
-    MSG_CompleteAgentMovement   = MK_LOW(249),
-    MSG_AgentMovementComplete   = MK_LOW(250),
-    MSG_LogoutRequest           = MK_LOW(252),
-    MSG_LogoutReply             = MK_LOW(253),
-    MSG_ImprovedInstantMessage  = MK_LOW(254),
-    MSG_MapNameRequest          = MK_LOW(408),
-    MSG_MapBlockReply           = MK_LOW(409)
-};
+#include "message_template.h"
 
 /* packet header flags */
 enum { PF_ZERO = 0x80, PF_RELIABLE = 0x40, PF_RESENT = 0x20, PF_ACK = 0x10 };
@@ -105,11 +73,130 @@ enum { CHAT_WHISPER = 0, CHAT_NORMAL = 1, CHAT_SHOUT = 2,
        CHAT_START = 4, CHAT_STOP = 5, CHAT_DEBUG = 6 };
 
 /* instant message dialogs (subset) */
-enum { IM_NOTHING_SPECIAL = 0, IM_MESSAGEBOX = 1, IM_GROUP_INVITATION = 3,
-       IM_INVENTORY_OFFERED = 4, IM_FROM_TASK = 19, IM_LURE_USER = 22,
-       IM_TELEPORT_REQUEST = 26, IM_FROM_TASK_AS_ALERT = 31,
-       IM_GROUP_NOTICE = 32, IM_FRIENDSHIP_OFFERED = 38,
-       IM_TYPING_START = 41, IM_TYPING_STOP = 42 };
+// https://github.com/megapahit/viewer/blob/6c5f876d68482754c51587083a467d2960595506/indra/llmessage/llinstantmessage.h#L41
+enum {
+    // default. ID is meaningless, nothing in the binary bucket.
+    IM_NOTHING_SPECIAL = 0,
+
+    // pops a messagebox with a single OK button
+    IM_MESSAGEBOX = 1,
+
+    // pops a countdown messagebox with a single OK button
+    // IM_MESSAGEBOX_COUNTDOWN = 2,
+
+    // You've been invited to join a group.
+    // ID is the group id.
+
+    // The binary bucket contains a null terminated string
+    // representation of the officer/member status and join cost for
+    // the invitee. (bug # 7672) The format is 1 byte for
+    // officer/member (O for officer, M for member), and as many bytes
+    // as necessary for cost.
+    IM_GROUP_INVITATION = 3,
+
+    // Inventory offer.
+    // ID is the transaction id
+    // Binary bucket is a list of inventory uuid and type.
+    IM_INVENTORY_OFFERED = 4,
+    IM_INVENTORY_ACCEPTED = 5,
+    IM_INVENTORY_DECLINED = 6,
+
+    // Group vote
+    // Name is name of person who called vote.
+    // ID is vote ID used for internal tracking
+    // TODO: _DEPRECATED suffix as part of vote removal - DEV-24856
+    IM_GROUP_VOTE = 7,
+
+    // Group message
+    // This means that the message is meant for everyone in the
+    // agent's group. This will result in a database query to find all
+    // participants and start an im session.
+    IM_GROUP_MESSAGE_DEPRECATED = 8,
+
+    // Task inventory offer.
+    // ID is the transaction id
+    // Binary bucket is a (mostly) complete packed inventory item
+    IM_TASK_INVENTORY_OFFERED = 9,
+    IM_TASK_INVENTORY_ACCEPTED = 10,
+    IM_TASK_INVENTORY_DECLINED = 11,
+
+    // Copied as pending, type LL_NOTHING_SPECIAL, for new users
+    // used by offline tools
+    IM_NEW_USER_DEFAULT = 12,
+
+    //
+    // session based messaging - the way that people usually actually
+    // communicate with each other.
+    //
+
+    // Invite users to a session.
+    IM_SESSION_INVITE = 13,
+
+    IM_SESSION_P2P_INVITE = 14,
+
+    // start a session with your gruop
+    IM_SESSION_GROUP_START = 15,
+
+    // start a session without a calling card (finder or objects)
+    IM_SESSION_CONFERENCE_START = 16,
+
+    // send a message to a session.
+    IM_SESSION_SEND = 17,
+
+    // leave a session
+    IM_SESSION_LEAVE = 18,
+
+    // an instant message from an object - for differentiation on the
+    // viewer, since you can't IM an object yet.
+    IM_FROM_TASK = 19,
+
+    // sent an IM to a do not disturb user, this is the auto response
+    IM_DO_NOT_DISTURB_AUTO_RESPONSE = 20,
+
+    // Shows the message in the console and chat history
+    IM_CONSOLE_AND_CHAT_HISTORY = 21,
+
+    // IM Types used for luring your friends
+    IM_LURE_USER = 22,
+    IM_LURE_ACCEPTED = 23,
+    IM_LURE_DECLINED = 24,
+    IM_GODLIKE_LURE_USER = 25,
+    IM_TELEPORT_REQUEST = 26,
+
+    // IM that notifie of a new group election.
+    // Name is name of person who called vote.
+    // ID is election ID used for internal tracking
+    IM_GROUP_ELECTION_DEPRECATED = 27,
+
+    // IM to tell the user to go to an URL. Put a text message in the
+    // message field, and put the url with a trailing \0 in the binary
+    // bucket.
+    IM_GOTO_URL = 28,
+
+    // a message generated by a script which we don't want to
+    // be sent through e-mail.  Similar to IM_FROM_TASK, but
+    // it is shown as an alert on the viewer.
+    IM_FROM_TASK_AS_ALERT = 31,
+
+    // IM from group officer to all group members.
+    IM_GROUP_NOTICE = 32,
+    IM_GROUP_NOTICE_INVENTORY_ACCEPTED = 33,
+    IM_GROUP_NOTICE_INVENTORY_DECLINED = 34,
+
+    IM_GROUP_INVITATION_ACCEPT = 35,
+    IM_GROUP_INVITATION_DECLINE = 36,
+
+    IM_GROUP_NOTICE_REQUESTED = 37,
+
+    IM_FRIENDSHIP_OFFERED = 38,
+    IM_FRIENDSHIP_ACCEPTED = 39,
+    IM_FRIENDSHIP_DECLINED_DEPRECATED = 40,
+
+    IM_TYPING_START = 41,
+    IM_TYPING_STOP = 42,
+
+    IM_COUNT
+};
 
 #define TELEPORT_VIA_LURE 0x04u
 
