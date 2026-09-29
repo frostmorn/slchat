@@ -804,7 +804,7 @@ static void handle_message(Client* cl, Circuit* c, uint32_t key, Rd* r)
         cl->done = true;
         break;
     default:
-        VLOG(cl, "unhandled message %08x", key);
+        VLOG(cl, "unhandled message %08x %s", key, message_name(key));
     }
 }
 

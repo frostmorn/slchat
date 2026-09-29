@@ -42,31 +42,27 @@ while i < len(lines):
     name, frequency, number = m.groups()
     fields = []
 
-    # Find the message's opening { immediately before its fields.
     i += 1
 
-    depth = 0
-
+    # Scan until the next message declaration.
     while i < len(lines):
-        line = lines[i]
+        if message_re.match(lines[i]):
+            break
 
-        fm = field_re.match(line)
+        fm = field_re.match(lines[i])
         if fm:
             field_name, field_type = fm.groups()
             fields.append(f"{field_name}: {field_type}")
-
-        depth += line.count("{")
-        depth -= line.count("}")
-
-        # Message block has closed.
-        if depth < 0:
-            break
 
         i += 1
 
     messages.append((name, frequency, number, fields))
 
-print("""#define MK_HIGH(n)  (0x00000u | (n))
+print("""#pragma once
+
+#include <stdint.h>
+
+#define MK_HIGH(n)  (0x00000u | (n))
 #define MK_MED(n)   (0x10000u | (n))
 #define MK_LOW(n)   (0x20000u | (n))
 #define MK_FIXED(n) (0x30000u | (n))
@@ -83,4 +79,18 @@ for name, frequency, number, fields in messages:
 
     print(f"    MSG_{name:<32} = {macro}({number}),{comment}")
 
-print("};")
+print("""};
+
+static inline const char *message_name(uint32_t id)
+{
+    switch (id) {
+""")
+
+for name, frequency, number, fields in messages:
+    print(f'    case MSG_{name}: return "{name}";')
+
+print("""    default:
+        return NULL;
+    }
+}
+""")
